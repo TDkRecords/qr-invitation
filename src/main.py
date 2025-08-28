@@ -34,18 +34,18 @@ def main(page: ft.Page):
 
     # Campo para configurar IP
     ip_field = ft.TextField(
-        label="IP de la cámara (ej: 192.168.0.1:8080)",
+        label="IP de la cámara",
         value="",
-        width=page.window.width,
+        width=450,
         color=ft.Colors.WHITE,
     )
 
     # Dropdown de IPs guardadas
     ip_dropdown = ft.Dropdown(
         label="IPs Guardadas",
-        width=page.window.width,
+        width=450,
         options=[],
-        bgcolor=ft.Colors.GREY_800,
+        bgcolor=ft.Colors.GREEN_900,
         color=ft.Colors.GREEN,
     )
 
@@ -266,7 +266,7 @@ def main(page: ft.Page):
         bgcolor="#121212",
     )
 
-    config_container = ft.Container(
+    card_ip_options = ft.Container(
         content=ft.Column(
             [
                 ft.Text("Configuración de Cámara IP", size=16, color=ft.Colors.WHITE),
@@ -278,6 +278,26 @@ def main(page: ft.Page):
                 ),
                 ip_button_autodetect,
                 save_message,
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_EVENLY,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            expand=True,
+        ),
+        alignment=ft.alignment.center,
+        expand=True,
+    )
+
+    config_container = ft.Container(
+        content=ft.Column(
+            [
+                ft.Container(
+                    content=card_ip_options,
+                    bgcolor=ft.Colors.GREY_800,
+                    alignment=ft.alignment.center,
+                    padding=ft.padding.only(top=20, bottom=20, left=15, right=15),
+                    border_radius=16,
+                    width=450,
+                ),
                 ft.Container(
                     ft.Text(
                         f"IP del dispositivo: {get_device_ip()}",
@@ -288,9 +308,10 @@ def main(page: ft.Page):
                     expand=True,
                 ),
             ],
+            alignment=ft.MainAxisAlignment.CENTER,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         ),
-        bgcolor=ft.Colors.GREY_900,
+        bgcolor="#121212",
         padding=ft.padding.only(top=20, bottom=10, left=10, right=10),
         expand=True,
     )
@@ -304,12 +325,13 @@ def main(page: ft.Page):
             alignment=ft.MainAxisAlignment.CENTER,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=10,
+            expand=True,
         ),
         margin=20,
-        alignment=ft.alignment.top_center,
         bgcolor=ft.Colors.GREY_800,
-        padding=ft.padding.only(top=20, bottom=20),
-        expand=True,
+        padding=ft.padding.only(top=20, bottom=20, left=20, right=20),
+        width=750,
+        alignment=ft.alignment.top_center,
     )
 
     body_scanner = ft.Column(
@@ -321,7 +343,8 @@ def main(page: ft.Page):
             ),
             action_button,
         ],
-        alignment=ft.MainAxisAlignment.SPACE_EVENLY,
+        alignment=ft.MainAxisAlignment.CENTER,
+        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         scroll=ft.ScrollMode.AUTO,
     )
 
@@ -346,11 +369,24 @@ def main(page: ft.Page):
                                 expand=True,
                                 alignment=ft.alignment.top_center,
                             ),
-                        ]
+                        ],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        width=4,
                     ),
                 ),
                 ft.Tab(
-                    text="PERSONAS",
+                    text="CONFIGURACION",
+                    icon=ft.Icons.SETTINGS,
+                    content=ft.Container(
+                        content=config_container,
+                        bgcolor="#121212",
+                        expand=True,
+                        alignment=ft.alignment.top_center,
+                    ),
+                ),
+                ft.Tab(
+                    text="GESTIONAR",
                     icon=ft.Icons.PERSON_PIN,
                     content=ft.Container(
                         content=admin_people,
@@ -358,16 +394,6 @@ def main(page: ft.Page):
                         expand=True,
                         alignment=ft.alignment.top_center,
                         height=page.window.height,
-                    ),
-                ),
-                ft.Tab(
-                    text="OPCIONES",
-                    icon=ft.Icons.SETTINGS,
-                    content=ft.Container(
-                        content=config_container,
-                        bgcolor="#121212",
-                        expand=True,
-                        alignment=ft.alignment.top_center,
                     ),
                 ),
             ],

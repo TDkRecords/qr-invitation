@@ -9,9 +9,12 @@ click==8.2.1
 cookiecutter==2.6.0
 fastapi==0.116.1
 flet==0.28.3
+flet-camera==0.0.1
 flet-cli==0.28.3
 flet-desktop==0.28.3
+flet-permission-handler==0.1.0
 flet-web==0.28.3
+flet-webview==0.1.0
 h11==0.16.0
 httpcore==1.0.9
 httptools==0.6.4
@@ -25,6 +28,7 @@ numpy==2.2.6
 oauthlib==3.3.1
 opencv-python==4.12.0.88
 packaging==25.0
+pillow==11.3.0
 pydantic==2.11.7
 pydantic_core==2.33.2
 Pygments==2.19.2
@@ -33,6 +37,7 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
 python-slugify==8.0.4
 PyYAML==6.0.2
+pyzbar==0.1.9
 qrcode==7.4.2
 repath==0.9.0
 requests==2.32.5
