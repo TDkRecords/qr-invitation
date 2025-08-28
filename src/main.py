@@ -1,29 +1,9 @@
-import cv2
-import numpy as np
 import flet as ft
 import asyncio
 import requests
-import socket
 from utils.database import guardar_ip, obtener_ips, eliminar_ip
-
-
-def leer_codigo_qr(camera_url):
-    """Función bloqueante para leer código QR desde la cámara IP"""
-    cap = cv2.VideoCapture(camera_url)
-    detector = cv2.QRCodeDetector()
-
-    if not cap.isOpened():
-        return None
-
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            continue
-
-        data, bbox, _ = detector.detectAndDecode(frame)
-        if data:
-            cap.release()
-            return data
+from utils.camera import escanear_qr
+from utils.network import get_device_ip
 
 
 def main(page: ft.Page):
@@ -42,8 +22,9 @@ def main(page: ft.Page):
     page.vertical_alignment = ft.alignment.top_center
     page.horizontal_alignment = ft.MainAxisAlignment.CENTER
 
-    # Variables para control
+    # Variables de control
     camera_active = False
+    stop_flag = {"active": False}
 
     # Texto fijo y dinámico
     titulo_datos = ft.Text("DATOS ESCANEADOS", size=18, color=ft.Colors.WHITE)
@@ -59,46 +40,46 @@ def main(page: ft.Page):
         color=ft.Colors.WHITE,
     )
 
+    # Dropdown de IPs guardadas
+    ip_dropdown = ft.Dropdown(
+        label="IPs Guardadas",
+        width=page.window.width,
+        options=[],
+        bgcolor=ft.Colors.GREY_800,
+        color=ft.Colors.GREEN,
+    )
+
     def seleccionar_ip(e):
         if ip_dropdown.value:
             ip_field.value = ip_dropdown.value
             ip_field.update()
 
+    ip_dropdown.on_change = seleccionar_ip
+
     def actualizar_ip():
         ips = obtener_ips()
         ip_dropdown.options = [ft.dropdown.Option(ip) for ip in ips]
-        if ip_dropdown in page.controls:
-            ip_dropdown.update()
-
-    # Dropdown de ips guardadas
-    ip_dropdown = ft.Dropdown(
-        label="IPs Guardadas",
-        width=page.window.width,
-        options=[],
-        on_change=seleccionar_ip,
-        bgcolor=ft.Colors.GREY_800,
-        color=ft.Colors.GREEN,
-    )
-
-    def get_device_ip():
-        """Obtener la IP del dispositivo actual"""
+        # Actualizar solo si ya está agregado
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))
-            ip = s.getsockname()[0]
-            s.close()
-            return ip
-        except:
-            return "No disponible"
+            ip_dropdown.update()
+        except AssertionError:
+            pass
 
-    async def escanea_qr():
-        """Tarea asíncrona para escanear QR"""
+    # Callback para actualizar el texto de estado
+    def action_callback(msg):
+        action_text.value = msg
+        page.update()
+
+    async def start_camera():
+        """Iniciar cámara"""
         nonlocal camera_active
+        camera_active = True
+        stop_flag["active"] = True
 
         camera_ip = ip_field.value.strip()
         if not camera_ip:
-            action_text.value = "❌ Ingresa la IP de la cámara"
-            page.update()
+            action_callback("❌ Ingresa la IP de la cámara")
+            camera_active = False
             return
 
         if not camera_ip.startswith("http"):
@@ -110,50 +91,34 @@ def main(page: ft.Page):
         try:
             response = requests.get(camera_url.replace("/video", ""), timeout=5)
             if response.status_code != 200:
-                action_text.value = f"❌ No se puede conectar a {camera_ip}"
-                page.update()
+                action_callback(f"❌ No se puede conectar a {camera_ip}")
+                camera_active = False
                 return
         except Exception as e:
-            action_text.value = f"❌ Error conectando: {str(e)}"
-            page.update()
+            action_callback(f"❌ Error conectando: {str(e)}")
+            camera_active = False
             return
 
-        action_text.value = "📡 Conectando a cámara..."
-        page.update()
+        action_callback("📡 Conectando a cámara...")
 
-        # Escanear QR en bucle
-        while camera_active:
-            try:
-                codigo = await asyncio.to_thread(leer_codigo_qr, camera_url)
-                if codigo:
-                    action_text.value = f"✅ {codigo}"
-                    camera_active = False
-                    page.update()
-                    break
-            except Exception as e:
-                action_text.value = f"❌ Error: {str(e)}"
-                page.update()
-                break
-
-    def start_camera():
-        """Iniciar cámara"""
-        nonlocal camera_active
-        camera_active = True
-        page.run_task(escanea_qr)
+        # Escanear QR en bucle usando tu módulo camera
+        await escanear_qr(camera_url, action_callback, stop_flag)
+        camera_active = False
 
     def stop_camera():
         """Detener cámara"""
         nonlocal camera_active
+        stop_flag["active"] = False
         camera_active = False
 
     def scan_click(e):
         """Click del botón escanear"""
         if not camera_active:
-            start_camera()
+            page.run_task(start_camera)
         else:
             stop_camera()
             action_text.value = "Cámara detenida"
-            action_text.update()
+            page.update()
 
     def auto_detect_ip(e):
         """Auto-detectar IP del dispositivo"""
@@ -164,10 +129,9 @@ def main(page: ft.Page):
             suggested_ip = ".".join(ip_parts) + ":8080"
             ip_field.value = suggested_ip
             ip_field.update()
-            action_text.value = f"IP sugerida: {suggested_ip}"
+            action_callback(f"IP sugerida: {suggested_ip}")
         else:
-            action_text.value = "No se pudo detectar IP automáticamente"
-        action_text.update()
+            action_callback("No se pudo detectar IP automáticamente")
 
     async def save_ip_prompt(e):
         success = guardar_ip(ip_field.value)
@@ -185,41 +149,25 @@ def main(page: ft.Page):
             page.update()
             return
 
-        # Intentar eliminar la IP directamente
         eliminado = eliminar_ip(selected_ip)
         if eliminado:
             save_message.value = f"✅ IP {selected_ip} eliminada correctamente"
             actualizar_ip()
-            # Limpiar el campo si estaba mostrando la IP eliminada
-            ip_dropdown.update()
-            ip_field.update()
-            page.update()
-
             if ip_field.value == selected_ip:
                 ip_field.value = ""
-                ip_field.update()
-                ip_dropdown.update()
-            # Limpiar selección del dropdown
-            elif ip_field.value != selected_ip:
-                ip_dropdown.value = None
-                ip_dropdown.update()
-                page.update()
-
             ip_dropdown.value = None
+            ip_field.update()
             ip_dropdown.update()
             page.update()
         else:
             save_message.value = f"❌ Error al eliminar la IP: {selected_ip}"
+            page.update()
 
-        page.update()
-
-    # Resto de la interfaz de usuario (igual que antes)
+    # Botones e interfaz
     custom_scan_button = ft.Container(
         content=ft.Column(
             [
-                ft.Icon(
-                    name=ft.Icons.QR_CODE_2_OUTLINED, size=80, color=ft.Colors.WHITE
-                ),
+                ft.Icon(ft.Icons.QR_CODE_2_OUTLINED, size=80, color=ft.Colors.WHITE),
                 ft.Text(
                     "ESCANEAR" if not camera_active else "DETENER",
                     size=16,
@@ -262,15 +210,9 @@ def main(page: ft.Page):
         on_click=eliminar_ip_seleccionada,
     )
 
-    save_message = ft.Text(
-        "",
-        size=12,
-        color=ft.Colors.WHITE70,
-    )
+    save_message = ft.Text("", size=12, color=ft.Colors.WHITE70)
 
-    # Logica Login
-    # if superuser == "admin" and password == "admin":
-
+    # Login
     form_login = ft.Container(
         content=ft.Column(
             [
@@ -312,6 +254,7 @@ def main(page: ft.Page):
         alignment=ft.alignment.center,
         border_radius=16,
     )
+
     admin_people = ft.Container(
         content=ft.Column(
             [form_login],
@@ -435,8 +378,9 @@ def main(page: ft.Page):
         expand=True,
     )
 
-    actualizar_ip(),
+    # Agregar al page primero
     page.add(navbar)
+    actualizar_ip()  # Ahora seguro
     page.update()
 
 
